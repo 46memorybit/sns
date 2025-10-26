@@ -1,5 +1,5 @@
 /* App Shell キャッシュ */
-const CACHE_NAME = 'pwa-memo-links-v2';
+const CACHE_NAME = 'pwa-memo-links-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -40,5 +40,5 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // 外部はそのままネットワーク
+  // 外部はネットワークに任せる
 });
