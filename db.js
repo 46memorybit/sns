@@ -10,7 +10,7 @@ const db = (() => {
     if (_dbp) return _dbp;
     _dbp = new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, VERSION);
-      req.onupgradeneeded = (e) => {
+      req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
       };
