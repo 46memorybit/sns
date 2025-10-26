@@ -1,7 +1,6 @@
 {
   "name": "テキスト保存＆リンク起動PWA",
   "short_name": "メモ&リンク",
-  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b1020",
