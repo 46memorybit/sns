@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>46memorybit をブラウザで開く</title>
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px;text-align:center}
+    a.button{display:inline-block;padding:12px 16px;border-radius:12px;border:1px solid #888;text-decoration:none}
+  </style>
+  <!-- 自動遷移（戻る履歴を汚さないように replace を使用） -->
+  <script>
+    (function () {
+      // アプリに飛びにくい順に試す
+      const candidates = [
+        "https://mobile.twitter.com/46memorybit",
+        "https://twitter.com/intent/user?screen_name=46memorybit",
+        "https://x.com/46memorybit"
+      ];
+      // 一拍置いてから遷移（描画→自動遷移が安定）
+      window.addEventListener("DOMContentLoaded", () => {
+        let i = 0;
+        const tryNext = () => {
+          if (i >= candidates.length) return;
+          // iOS/Androidの一部でユーザー操作無しの連続遷移が制限されるため、少し待つ
+          setTimeout(() => {
+            location.replace(candidates[i++]);
+          }, 150);
+        };
+        tryNext();
+        // 念のため2段フォールバックも順次実行（初回がブロックされた環境向け）
+        setTimeout(tryNext, 800);
+        setTimeout(tryNext, 1600);
+      });
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <main>
+      <h1>ブラウザで開いています…</h1>
+      <p>自動で開かない場合は、以下のボタンをタップしてください（アプリには遷移しにくい順）。</p>
+      <p>
+        <a class="button" href="https://mobile.twitter.com/46memorybit" rel="noopener">mobile.twitter.com で開く</a>
+      </p>
+      <p>
+        <a class="button" href="https://twitter.com/intent/user?screen_name=46memorybit" rel="noopener">intent 経由で開く</a>
+      </p>
+      <p>
+        <a class="button" href="https://x.com/46memorybit" rel="noopener">x.com を開く</a>
+      </p>
+    </main>
+  </div>
+</body>
+</html>
