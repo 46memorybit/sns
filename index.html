@@ -12,12 +12,16 @@
     :root { color-scheme: light dark; }
     *{box-sizing:border-box}
     html,body{margin:0;background:#0b1020;color:#e5e7eb;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif}
-    .wrap{max-width:960px;margin:0 auto;padding:16px 16px 120px}
+    .wrap{max-width:960px;margin:0 auto;padding:16px 16px 112px}
     h1{font-size:18px;margin:12px 0 8px;font-weight:700}
     .card{background:#0f172a;border:1px solid #23324d;border-radius:16px;padding:12px}
     textarea{
       width:100%;min-height:140px;border:1px solid #2b3b5a;border-radius:12px;
       background:#0b1222;color:#e5e7eb;padding:12px;outline:none;resize:vertical;font-size:16px !important;
+    }
+    input[type="text"], input[type="url"]{
+      width:100%;border:1px solid #2b3b5a;border-radius:12px;background:#0b1222;color:#e5e7eb;
+      padding:12px;font-size:16px !important;outline:none;
     }
     .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
     .btn{
@@ -27,7 +31,7 @@
     }
     .btn:active{transform:scale(.98)}
     .btn.copy{background:#1e3a8a;border-color:#3655a8}
-    .btn.warn{background:#3b1f1f;border-color:#6b2a2a}
+    .btn.danger{background:#5b1e2a;border-color:#8a3647}
     .grid{
       display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px
     }
@@ -38,29 +42,28 @@
       border:1px solid #2a3e62;border-radius:14px;padding:16px;min-height:64px;
       font-weight:700;line-height:1.2;word-break:break-word
     }
-    .hint{opacity:.7;font-size:12px;margin-top:6px}
-    /* URLビルダー */
-    .builder{display:grid;grid-template-columns:1fr;gap:10px}
-    .field{display:flex;gap:8px;flex-wrap:wrap}
-    .field input{
-      flex:1 1 220px;border:1px solid #2b3b5a;border-radius:12px;padding:10px 12px;
-      background:#0b1222;color:#e5e7eb;font-size:16px !important;outline:none
+    .hint{opacity:.75;font-size:12px;margin-top:6px}
+    .muted{opacity:.7}
+    .empty{opacity:.8;background:#0e1425;border:1px dashed #2b3b5a;border-radius:12px;padding:12px}
+    /* builder list */
+    .list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+    .item{
+      display:flex;gap:8px;align-items:center;justify-content:space-between;
+      background:#0b1222;border:1px solid #2b3b5a;border-radius:12px;padding:10px
     }
-    .pairlist{display:flex;flex-direction:column;gap:6px;margin-top:6px}
-    .pairitem{display:flex;gap:8px;align-items:center;background:#0b1222;border:1px solid #2b3b5a;border-radius:12px;padding:10px}
-    .pairitem b{margin-right:6px}
-    .pairitem .del{margin-left:auto}
-    .genrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .genout{flex:1;border:1px solid #2b3b5a;border-radius:12px;padding:10px 12px;background:#0b1222;color:#e5e7eb;font-size:14px;overflow:auto;white-space:nowrap}
+    .item .meta{min-width:0}
+    .item .ttl{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .item .url{font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* トースト */
     .toast{
       position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
       background:#111827;color:#e5e7eb;border:1px solid #374151;
-      padding:10px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s ease
+      padding:10px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:1000
     }
     .toast.show{opacity:1}
+    /* 安全領域 */
     @supports (padding: max(0px)) {
-      .wrap{padding-bottom: max(120px, env(safe-area-inset-bottom))}
+      .wrap{padding-bottom: max(112px, env(safe-area-inset-bottom))}
     }
   </style>
 </head>
@@ -73,36 +76,55 @@
         <button id="copyBtn" class="btn copy">このテキストをコピー</button>
         <button id="clearBtn" class="btn" title="内容を消去してもストレージは残ります">消去</button>
       </div>
-      <div class="hint">URLパラメータの例：<code>?text=初期テキスト</code></div>
-    </div>
-
-    <h1>リンク起動（URLパラメータで定義可）</h1>
-    <div id="links" class="grid"><!-- app.js で生成 --></div>
-    <div class="card hint">
-      例：<code>?btn=X|https://46memorybit.github.io/SNSPWA/X/index.html&amp;btn=歌ネット|https://www.uta-net.com/song/382246/&amp;btn=USEN|https://usen.oshireq.com/song/6299592</code>
-    </div>
-
-    <!-- ▼▼ ここから最下部：パラメータ付きURL生成セクション ▼▼ -->
-    <h1>パラメータ付きURLを作成してコピー</h1>
-    <div class="card builder" id="urlBuilder">
-      <div class="field">
-        <input id="bTitle" placeholder="タイトル（例：X、歌ネット、USEN など）" />
-        <input id="bUrl" placeholder="リンクURL（https:// から）" inputmode="url" />
-        <button id="addPair" class="btn">追加</button>
-        <button id="resetPairs" class="btn warn">クリア</button>
-      </div>
-      <div id="pairList" class="pairlist" aria-live="polite"></div>
-      <div class="genrow">
-        <div id="genUrl" class="genout" title="生成結果URL（スクロール可）"></div>
-        <button id="genBtn" class="btn">生成</button>
-        <button id="copyGen" class="btn copy">コピー</button>
-      </div>
       <div class="hint">
-        ベースURL：<code>https://46memorybit.github.io/sns/index.html</code><br>
-        形式：<code>?btn=タイトル|URL</code> を複数連結（<code>&amp;</code>区切り）
+        URLパラメータ例：<code>?text=初期テキスト</code>
       </div>
     </div>
-    <!-- ▲▲ ここまで ▼▼ -->
+
+    <!-- 説明（パラメータ無し時に表示） -->
+    <div id="desc" class="card" style="display:none;margin-top:12px">
+      <div class="muted">
+        <p style="margin:0 0 6px">
+          下の<strong>カスタムURL作成</strong>でボタン（タイトルとリンク）を追加し、生成されたURLをコピーして共有/ブックマークすると、<strong>リンク起動</strong>に四角いボタンが表示されます。
+        </p>
+        <div class="hint">
+          形式例：<code>?btn=タイトル1|https://example.com&amp;btn=タイトル2|https://example.org</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- リンク起動（パラメータ有りのときのみ表示） -->
+    <section id="linkSection" style="display:none">
+      <h1>リンク起動（URLパラメータで定義）</h1>
+      <div id="links" class="grid"></div>
+      <div class="card hint">
+        例）<code>?btn=X|https://46memorybit.github.io/SNSPWA/X/index.html&amp;btn=歌ネット|https://www.uta-net.com/song/382246/&amp;btn=USEN|https://usen.oshireq.com/song/6299592</code><br/>
+        <small>※ <strong>btn=タイトル|URL</strong> を複数回指定できます。</small>
+      </div>
+    </section>
+
+    <!-- カスタムURL作成（固定で表示） -->
+    <h1 style="margin-top:16px">カスタムURL作成（パラメータ付きURLを生成してコピー）</h1>
+    <div class="card">
+      <div class="row">
+        <input id="builderTitle" type="text" inputmode="text" autocomplete="off" placeholder="タイトル（例：X）" />
+        <input id="builderUrl" type="url" inputmode="url" autocomplete="off" placeholder="リンク（https:// から）" />
+        <button id="builderAdd" class="btn">追加</button>
+      </div>
+      <div class="hint">ベースURL：<code id="baseUrl">https://46memorybit.github.io/sns/index.html</code></div>
+
+      <div id="builderEmpty" class="empty" style="margin-top:10px;display:none">
+        まだ項目がありません。タイトルとリンクを入力して「追加」を押してください。
+      </div>
+
+      <div id="builderList" class="list" aria-live="polite"></div>
+
+      <div class="row" style="justify-content:space-between;margin-top:14px">
+        <div class="hint" id="builderCount"></div>
+        <button id="builderCopy" class="btn copy">カスタムURLをコピー</button>
+      </div>
+      <div class="hint">コピーされるURLには <code>btn=タイトル|URL</code> が複数並びます。</div>
+    </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -110,6 +132,7 @@
   <script src="./db.js"></script>
   <script src="./app.js"></script>
   <script>
+    // PWA Service Worker 登録
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js').catch(console.error);
