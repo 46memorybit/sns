@@ -1,14 +1,10 @@
 // ------------------------------
-// デフォルトボタン（URLパラメータで上書き可）
+// 定数
 // ------------------------------
-const DEFAULT_BUTTONS = [
-  { title: 'X',          url: 'https://x.com/home' },
-  { title: 'YouTube',    url: 'https://www.youtube.com/' },
-  { title: 'Instagram',  url: 'https://www.instagram.com/' }
-];
-
-// ベースURL（ユーザー指定）
 const BASE_URL = 'https://46memorybit.github.io/sns/index.html';
+
+// （初期表示：URLパラメータが無いときはリンク起動を出さない）
+const DEFAULT_BUTTONS = []; // 使わないが互換のため残置
 
 // ------------------------------
 // ユーティリティ
@@ -24,7 +20,6 @@ const toast = (msg, ms = 1400) => {
 };
 
 const copyText = async (text) => {
-  if (!text) { toast('コピーする内容がありません'); return; }
   try {
     await navigator.clipboard.writeText(text);
     toast('コピーしました');
@@ -40,9 +35,9 @@ const copyText = async (text) => {
 };
 
 // ------------------------------
-// URL パラメータ解析
+// URL パラメータ処理
 // ?text=...（初期文）
-// ?btn=タイトル|URL（複数可）
+// ?btn=タイトル|URL を複数回
 // 互換：?buttons=タイトル|URL;タイトル|URL;...
 // ------------------------------
 const parseUrlButtons = () => {
@@ -52,7 +47,12 @@ const parseUrlButtons = () => {
   // btn=title|url を複数
   for (const v of params.getAll('btn')) {
     const s = v.split('|');
-    if (s.length >= 2) list.push({ title: decodeURIComponent(s[0]), url: s.slice(1).join('|') });
+    if (s.length >= 2) {
+      const title = decodeURIComponent(s[0]);
+      // URL側には '|' を含む可能性があるため残りを結合してから decode
+      const urlRaw = s.slice(1).join('|');
+      list.push({ title, url: decodeURIComponent(urlRaw) });
+    }
   }
 
   // buttons=title|url;title|url 形式もサポート
@@ -60,7 +60,11 @@ const parseUrlButtons = () => {
   if (bulk) {
     bulk.split(';').forEach(item => {
       const s = item.trim().split('|');
-      if (s.length >= 2) list.push({ title: decodeURIComponent(s[0]), url: s.slice(1).join('|') });
+      if (s.length >= 2) {
+        const title = decodeURIComponent(s[0]);
+        const urlRaw = s.slice(1).join('|');
+        list.push({ title, url: decodeURIComponent(urlRaw) });
+      }
     });
   }
 
@@ -87,90 +91,91 @@ const renderButtons = (buttons) => {
     a.textContent = title;
     a.href = url;
     a.rel = 'noopener noreferrer';
-    a.target = '_blank'; // PWAでも外部ブラウザへ
+    a.target = '_blank';
     links.appendChild(a);
   });
 };
 
 // ------------------------------
-// URLビルダー（最下部セクション）
+// Builder（カスタムURL作成）
 // ------------------------------
-const builderState = {
-  pairs: [] // {title, url}[]
+let builderItems = []; // {title, url}[]
+
+const builderStateLoad = async () => {
+  const saved = await db.get('builderItems');
+  builderItems = Array.isArray(saved) ? saved : [];
 };
 
-const safeTitle = (t) => (t ?? '').trim();
-const safeUrl = (u) => (u ?? '').trim();
-
-const addPair = (title, url) => {
-  title = safeTitle(title);
-  url   = safeUrl(url);
-  if (!title) { toast('タイトルを入力してください'); return; }
-  if (!/^https?:\/\//i.test(url)) { toast('URLは https:// から始めてください'); return; }
-  builderState.pairs.push({ title, url });
-  renderPairList();
+const builderStateSave = async () => {
+  await db.set('builderItems', builderItems);
 };
 
-const removePair = (idx) => {
-  builderState.pairs.splice(idx, 1);
-  renderPairList();
+const buildCustomURL = () => {
+  if (!builderItems.length) return BASE_URL;
+  const qs = builderItems
+    .map(({ title, url }) => `btn=${encodeURIComponent(title)}|${encodeURIComponent(url)}`)
+    .join('&');
+  return `${BASE_URL}?${qs}`;
 };
 
-const resetPairs = () => {
-  builderState.pairs = [];
-  renderPairList();
-  $('#genUrl').textContent = '';
-};
+const renderBuilder = () => {
+  const listEl = $('#builderList');
+  const emptyEl = $('#builderEmpty');
+  const countEl = $('#builderCount');
 
-const renderPairList = () => {
-  const list = $('#pairList');
-  list.innerHTML = '';
-  builderState.pairs.forEach((p, i) => {
-    const row = document.createElement('div');
-    row.className = 'pairitem';
-    const title = document.createElement('div');
-    title.innerHTML = `<b>${escapeHtml(p.title)}</b>`;
-    const link = document.createElement('div');
-    link.textContent = p.url;
-    const del = document.createElement('button');
-    del.className = 'btn del';
-    del.textContent = '削除';
-    del.addEventListener('click', () => removePair(i));
-    row.appendChild(title);
-    row.appendChild(link);
-    row.appendChild(del);
-    list.appendChild(row);
-  });
-};
-
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (m) =>
-  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])
-);
-
-const buildUrl = () => {
-  const base = BASE_URL;
-  if (builderState.pairs.length === 0) {
-    toast('ペアがありません（まず追加してください）');
-    return '';
+  listEl.innerHTML = '';
+  if (builderItems.length === 0) {
+    emptyEl.style.display = '';
+    countEl.textContent = '0件';
+    return;
   }
-  const params = builderState.pairs.map(p =>
-    // タイトルはエンコード、区切りの | はそのまま、URLはそのまま（既にエンコードされていてもOK）
-    `btn=${encodeURIComponent(p.title)}|${p.url}`
-  ).join('&');
-  const out = `${base}?${params}`;
-  $('#genUrl').textContent = out;
-  return out;
+  emptyEl.style.display = 'none';
+
+  builderItems.forEach((it, idx) => {
+    const row = document.createElement('div');
+    row.className = 'item';
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const ttl = document.createElement('div');
+    ttl.className = 'ttl';
+    ttl.textContent = it.title;
+    const url = document.createElement('div');
+    url.className = 'url';
+    url.textContent = it.url;
+    meta.appendChild(ttl);
+    meta.appendChild(url);
+
+    const del = document.createElement('button');
+    del.className = 'btn danger';
+    del.textContent = '削除';
+    del.addEventListener('click', async () => {
+      builderItems.splice(idx, 1);
+      await builderStateSave();
+      renderBuilder();
+      toast('削除しました');
+    });
+
+    row.appendChild(meta);
+    row.appendChild(del);
+    listEl.appendChild(row);
+  });
+
+  countEl.textContent = `${builderItems.length}件`;
 };
 
 // ------------------------------
 // メイン
 // ------------------------------
 (async function main(){
+  // ベースURL表示
+  $('#baseUrl').textContent = BASE_URL;
+
+  // メモ：IndexedDB から読込
   const memo = $('#memo');
   const copyBtn = $('#copyBtn');
   const clearBtn = $('#clearBtn');
 
-  // 1) メモ初期化
   const saved = await db.get('noteText');
   if (typeof saved === 'string') {
     memo.value = saved;
@@ -182,7 +187,6 @@ const buildUrl = () => {
     }
   }
 
-  // 自動保存（デバウンス）
   let t;
   memo.addEventListener('input', () => {
     clearTimeout(t);
@@ -190,7 +194,6 @@ const buildUrl = () => {
     t = setTimeout(() => db.set('noteText', v), 200);
   });
 
-  // コピー＆消去
   copyBtn.addEventListener('click', () => copyText(memo.value));
   clearBtn.addEventListener('click', async () => {
     memo.value = '';
@@ -198,34 +201,49 @@ const buildUrl = () => {
     toast('消去しました');
   });
 
-  // 2) パラメータのボタン描画
+  // リンク起動：URLパラメータがある時のみ表示
   const urlButtons = parseUrlButtons();
-  const buttons = urlButtons.length ? urlButtons : DEFAULT_BUTTONS;
-  renderButtons(buttons);
+  if (urlButtons.length > 0) {
+    $('#linkSection').style.display = '';
+    renderButtons(urlButtons);
+    $('#desc').style.display = 'none';
+  } else {
+    $('#linkSection').style.display = 'none';
+    $('#desc').style.display = '';
+  }
 
-  // 3) URLビルダー動作
-  $('#addPair').addEventListener('click', () => {
-    addPair($('#bTitle').value, $('#bUrl').value);
-    // 入力欄は続けて追加しやすいようにタイトルのみクリア
-    $('#bTitle').value = '';
-    $('#bTitle').focus();
-  });
+  // Builder 初期化
+  await builderStateLoad();
+  renderBuilder();
 
-  $('#resetPairs').addEventListener('click', resetPairs);
+  // Builder 追加
+  const iTitle = $('#builderTitle');
+  const iUrl = $('#builderUrl');
+  $('#builderAdd').addEventListener('click', async () => {
+    const title = (iTitle.value || '').trim();
+    const url = (iUrl.value || '').trim();
 
-  $('#genBtn').addEventListener('click', () => {
-    const url = buildUrl();
-    if (url) toast('生成しました');
-  });
-
-  $('#copyGen').addEventListener('click', () => {
-    const text = $('#genUrl').textContent.trim();
-    if (!text) {
-      const url = buildUrl();
-      if (!url) return;
-      copyText(url);
-    } else {
-      copyText(text);
+    if (!title) {
+      toast('タイトルを入力してください'); iTitle.focus(); return;
     }
+    if (!/^https?:\/\//i.test(url)) {
+      toast('URLは https:// または http:// から入力してください'); iUrl.focus(); return;
+    }
+
+    builderItems.push({ title, url });
+    await builderStateSave();
+    renderBuilder();
+
+    // クリア＆次の入力に備えてフォーカス
+    iTitle.value = '';
+    iUrl.value = '';
+    iTitle.focus();
+    toast('追加しました');
+  });
+
+  // Builder コピー
+  $('#builderCopy').addEventListener('click', async () => {
+    const full = buildCustomURL();
+    await copyText(full);
   });
 })();
