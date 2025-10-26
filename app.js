@@ -3,9 +3,6 @@
 // ------------------------------
 const BASE_URL = 'https://46memorybit.github.io/sns/index.html';
 
-// （初期表示：URLパラメータが無いときはリンク起動を出さない）
-const DEFAULT_BUTTONS = []; // 使わないが互換のため残置
-
 // ------------------------------
 // ユーティリティ
 // ------------------------------
@@ -44,18 +41,15 @@ const parseUrlButtons = () => {
   const params = new URLSearchParams(location.search);
   const list = [];
 
-  // btn=title|url を複数
   for (const v of params.getAll('btn')) {
     const s = v.split('|');
     if (s.length >= 2) {
       const title = decodeURIComponent(s[0]);
-      // URL側には '|' を含む可能性があるため残りを結合してから decode
       const urlRaw = s.slice(1).join('|');
       list.push({ title, url: decodeURIComponent(urlRaw) });
     }
   }
 
-  // buttons=title|url;title|url 形式もサポート
   const bulk = params.get('buttons');
   if (bulk) {
     bulk.split(';').forEach(item => {
@@ -234,7 +228,7 @@ const renderBuilder = () => {
     await builderStateSave();
     renderBuilder();
 
-    // クリア＆次の入力に備えてフォーカス
+    // 入力欄クリア＆フォーカス戻し
     iTitle.value = '';
     iUrl.value = '';
     iTitle.focus();
