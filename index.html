@@ -70,15 +70,14 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>testメモ（自動保存・ワンタップコピー）</h1>
+    <h1>メモ</h1>
     <div class="card">
-      <textarea id="memo" placeholder="ここにテキストを入力…（入力と同時に自動保存されます）"></textarea>
+      <textarea id="memo" placeholder="ここにテキストを入力…"></textarea>
       <div class="row">
         <button id="copyBtn" class="btn copy">このテキストをコピー</button>
         <button id="clearBtn" class="btn" title="内容を消去してもストレージは残ります">消去</button>
       </div>
       <div class="hint">
-        URLパラメータ例：<code>?text=初期テキスト</code>
       </div>
     </div>
 
@@ -96,16 +95,14 @@
 
     <!-- パラメータ有り時のみ表示 -->
     <section id="linkSection" style="display:none">
-      <h1>リンク起動（URLパラメータで定義）</h1>
+      <h1>リンク起動</h1>
       <div id="links" class="grid"></div>
       <div class="card hint">
-        例）<code>?btn=X|https://46memorybit.github.io/SNSPWA/X/index.html&amp;btn=歌ネット|https://www.uta-net.com/song/382246/&amp;btn=USEN|https://usen.oshireq.com/song/6299592</code><br/>
-        <small>※ <strong>btn=タイトル|URL</strong> を複数回指定できます。</small>
       </div>
     </section>
 
     <!-- ビルダー -->
-    <h1 style="margin-top:16px">カスタムURL作成（パラメータ付きURLを生成してコピー）</h1>
+    <h1 style="margin-top:16px">カスタムURL作成</h1>
     <div class="card">
       <div class="row">
         <input id="builderTitle" type="text" inputmode="text" autocomplete="off" placeholder="タイトル（例：X）" />
@@ -124,7 +121,6 @@
         <div class="hint" id="builderCount"></div>
         <button id="builderCopy" class="btn copy">カスタムURLをコピー</button>
       </div>
-      <div class="hint">コピーされるURLには <code>btn=タイトル|URL</code> が複数並びます。</div>
     </div>
   </div>
 
