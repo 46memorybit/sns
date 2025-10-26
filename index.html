@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
   <title>テキスト保存＆リンク起動PWA</title>
   <meta name="theme-color" content="#0b1020" />
+  <!-- 静的 manifest（start_url なし / Android向け簡易対応） -->
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="apple-touch-icon" href="./assets/icon-192.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -81,7 +82,7 @@
       </div>
     </div>
 
-    <!-- 説明（パラメータ無し時に表示） -->
+    <!-- パラメータ無し時の説明 -->
     <div id="desc" class="card" style="display:none;margin-top:12px">
       <div class="muted">
         <p style="margin:0 0 6px">
@@ -93,7 +94,7 @@
       </div>
     </div>
 
-    <!-- リンク起動（パラメータ有りのときのみ表示） -->
+    <!-- パラメータ有り時のみ表示 -->
     <section id="linkSection" style="display:none">
       <h1>リンク起動（URLパラメータで定義）</h1>
       <div id="links" class="grid"></div>
@@ -103,7 +104,7 @@
       </div>
     </section>
 
-    <!-- カスタムURL作成（固定で表示） -->
+    <!-- ビルダー -->
     <h1 style="margin-top:16px">カスタムURL作成（パラメータ付きURLを生成してコピー）</h1>
     <div class="card">
       <div class="row">
@@ -131,6 +132,39 @@
 
   <script src="./db.js"></script>
   <script src="./app.js"></script>
+
+  <!-- ✅ iOSでも確実に：現在のクエリを start_url に焼き込む「動的 manifest」を生成して差し替え -->
+  <script>
+    (function(){
+      // いま開いている検索クエリ（?btn=... を含む）
+      const q = location.search || '';
+      // その場で manifest JSON を作成（start_url にクエリを埋め込む）
+      const dyn = {
+        name: "テキスト保存＆リンク起動PWA",
+        short_name: "メモ&リンク",
+        start_url: "./index.html" + q,  // ← クエリを固定
+        scope: "./",
+        display: "standalone",
+        background_color: "#0b1020",
+        theme_color: "#0b1020",
+        icons: [
+          { src: "assets/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+          { src: "assets/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+        ]
+      };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(dyn)], {type: 'application/manifest+json'}));
+
+      // 既存の <link rel="manifest"> を置き換え（※Safariでも拾ってくれるケースが多い）
+      let link = document.querySelector('link[rel="manifest"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'manifest';
+        document.head.appendChild(link);
+      }
+      link.href = url;
+    })();
+  </script>
+
   <script>
     // PWA Service Worker 登録
     if ('serviceWorker' in navigator) {
