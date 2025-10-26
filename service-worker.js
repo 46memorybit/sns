@@ -1,12 +1,11 @@
-/* 基本的な App Shell キャッシュ（静的アセットをキャッシュファースト） */
-const CACHE_NAME = 'pwa-memo-links-v1';
+/* App Shell キャッシュ */
+const CACHE_NAME = 'pwa-memo-links-v2';
 const APP_SHELL = [
   './',
   './index.html',
   './app.js',
   './db.js',
   './manifest.webmanifest',
-  // アイコンは存在する場合のみキャッシュ（無くてもOK）
   './assets/icon-192.png',
   './assets/icon-512.png'
 ];
@@ -25,20 +24,15 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
-// ナビゲーションはキャッシュ優先（オフライン起動を確実に）
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-
-  // 同一オリジンの GET のみを対象
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
 
-  // App shell はキャッシュファースト
   if (url.origin === location.origin) {
     e.respondWith(
       caches.match(req).then(cached => cached || fetch(req).then(res => {
-        // 将来的な更新に備えて動的に保存（失敗しても無視）
         const copy = res.clone();
         caches.open(CACHE_NAME).then(c => c.put(req, copy)).catch(()=>{});
         return res;
@@ -46,6 +40,5 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-
-  // 外部へのリンク（ボタン先）は SW で触らず、そのままネットワーク
+  // 外部はそのままネットワーク
 });
