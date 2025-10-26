@@ -12,8 +12,7 @@
     :root { color-scheme: light dark; }
     *{box-sizing:border-box}
     html,body{margin:0;background:#0b1020;color:#e5e7eb;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif}
-    input, textarea, select { font-size:16px !important; }
-    .wrap{max-width:960px;margin:0 auto;padding:16px 16px 96px}
+    .wrap{max-width:960px;margin:0 auto;padding:16px 16px 120px}
     h1{font-size:18px;margin:12px 0 8px;font-weight:700}
     .card{background:#0f172a;border:1px solid #23324d;border-radius:16px;padding:12px}
     textarea{
@@ -28,6 +27,7 @@
     }
     .btn:active{transform:scale(.98)}
     .btn.copy{background:#1e3a8a;border-color:#3655a8}
+    .btn.warn{background:#3b1f1f;border-color:#6b2a2a}
     .grid{
       display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px
     }
@@ -39,24 +39,28 @@
       font-weight:700;line-height:1.2;word-break:break-word
     }
     .hint{opacity:.7;font-size:12px;margin-top:6px}
+    /* URLビルダー */
+    .builder{display:grid;grid-template-columns:1fr;gap:10px}
+    .field{display:flex;gap:8px;flex-wrap:wrap}
+    .field input{
+      flex:1 1 220px;border:1px solid #2b3b5a;border-radius:12px;padding:10px 12px;
+      background:#0b1222;color:#e5e7eb;font-size:16px !important;outline:none
+    }
+    .pairlist{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+    .pairitem{display:flex;gap:8px;align-items:center;background:#0b1222;border:1px solid #2b3b5a;border-radius:12px;padding:10px}
+    .pairitem b{margin-right:6px}
+    .pairitem .del{margin-left:auto}
+    .genrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .genout{flex:1;border:1px solid #2b3b5a;border-radius:12px;padding:10px 12px;background:#0b1222;color:#e5e7eb;font-size:14px;overflow:auto;white-space:nowrap}
     /* トースト */
     .toast{
       position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
       background:#111827;color:#e5e7eb;border:1px solid #374151;
-      padding:10px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:2000
+      padding:10px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s ease
     }
     .toast.show{opacity:1}
-    /* 安全領域 */
     @supports (padding: max(0px)) {
-      .wrap{padding-bottom: max(96px, env(safe-area-inset-bottom))}
-    }
-    code{background:#111826;border:1px solid #26324a;border-radius:6px;padding:2px 6px}
-    a.inline{color:#9ec5ff}
-    label.chk{display:inline-flex;gap:.5rem;align-items:center;cursor:pointer}
-    input[type="checkbox"]{width:18px;height:18px}
-    input[type="url"]{
-      width:100%;margin-top:6px;border:1px solid #2b3b5a;border-radius:10px;
-      background:#0b1222;color:#e5e7eb;padding:10px;font-size:16px !important;
+      .wrap{padding-bottom: max(120px, env(safe-area-inset-bottom))}
     }
   </style>
 </head>
@@ -64,57 +68,41 @@
   <div class="wrap">
     <h1>メモ（自動保存・ワンタップコピー）</h1>
     <div class="card">
-      <textarea id="memo" placeholder="ここにテキストを入力…（入力と同時に自動保存されます）" aria-label="メモ入力欄"></textarea>
+      <textarea id="memo" placeholder="ここにテキストを入力…（入力と同時に自動保存されます）"></textarea>
       <div class="row">
-        <button id="copyBtn" class="btn copy" aria-label="メモをコピー">このテキストをコピー</button>
-        <button id="clearBtn" class="btn" title="内容のみ消去（保存領域は残ります）" aria-label="メモを消去">消去</button>
+        <button id="copyBtn" class="btn copy">このテキストをコピー</button>
+        <button id="clearBtn" class="btn" title="内容を消去してもストレージは残ります">消去</button>
       </div>
-      <div class="hint">
-        URLで初期文を設定：<code>?text=初期テキスト</code>
-      </div>
+      <div class="hint">URLパラメータの例：<code>?text=初期テキスト</code></div>
     </div>
 
     <h1>リンク起動（URLパラメータで定義可）</h1>
-    <div id="links" class="grid" aria-label="リンクボタン一覧">
-      <!-- app.js が生成 -->
-    </div>
+    <div id="links" class="grid"><!-- app.js で生成 --></div>
     <div class="card hint">
-      例）<code>?btn=X|https://46memorybit.github.io/SNSPWA/X/index.html&amp;btn=歌ネット|https://www.uta-net.com/song/382246/&amp;btn=USEN|https://usen.oshireq.com/song/6299592</code><br/>
-      <small>※ <strong>btn=タイトル|URL</strong> を複数回指定。<code>|</code> は区切り。</small>
+      例：<code>?btn=X|https://46memorybit.github.io/SNSPWA/X/index.html&amp;btn=歌ネット|https://www.uta-net.com/song/382246/&amp;btn=USEN|https://usen.oshireq.com/song/6299592</code>
     </div>
 
-    <!-- 共有用URL生成：ページ最下部 -->
-    <h1>共有用URL生成</h1>
-    <div class="card">
-      <label style="display:block;margin-bottom:8px;">
-        ベースURL（パラメータなし）
-        <input id="baseUrl" type="url" inputmode="url" value="https://46memorybit.github.io/sns/index.html" aria-label="ベースURL入力" />
-      </label>
-
-      <div class="row" style="margin-top:0">
-        <label class="chk btn">
-          <input id="optText" type="checkbox" checked />
-          <span>text= を含める（メモの内容）</span>
-        </label>
-        <label class="chk btn">
-          <input id="optBtns" type="checkbox" checked />
-          <span>btn= を含める（現在のリンクボタン）</span>
-        </label>
+    <!-- ▼▼ ここから最下部：パラメータ付きURL生成セクション ▼▼ -->
+    <h1>パラメータ付きURLを作成してコピー</h1>
+    <div class="card builder" id="urlBuilder">
+      <div class="field">
+        <input id="bTitle" placeholder="タイトル（例：X、歌ネット、USEN など）" />
+        <input id="bUrl" placeholder="リンクURL（https:// から）" inputmode="url" />
+        <button id="addPair" class="btn">追加</button>
+        <button id="resetPairs" class="btn warn">クリア</button>
       </div>
-
-      <div style="margin-top:10px">
-        <textarea id="shareUrl" readonly rows="3"
-          style="width:100%;border:1px solid #2b3b5a;border-radius:12px;background:#0b1222;color:#e5e7eb;padding:12px;resize:vertical;font-size:14px"
-          aria-label="生成された共有URL表示欄"></textarea>
-        <div class="row">
-          <button id="genBtn" class="btn" aria-label="URLを再生成">URLを再生成</button>
-          <button id="copyShareBtn" class="btn copy" aria-label="URLをコピー">URLをコピー</button>
-        </div>
-        <div class="hint">
-          生成例：<code>?text=...&amp;btn=タイトル%7Chttps%3A%2F%2Fexample.com&amp;btn=...</code>
-        </div>
+      <div id="pairList" class="pairlist" aria-live="polite"></div>
+      <div class="genrow">
+        <div id="genUrl" class="genout" title="生成結果URL（スクロール可）"></div>
+        <button id="genBtn" class="btn">生成</button>
+        <button id="copyGen" class="btn copy">コピー</button>
+      </div>
+      <div class="hint">
+        ベースURL：<code>https://46memorybit.github.io/sns/index.html</code><br>
+        形式：<code>?btn=タイトル|URL</code> を複数連結（<code>&amp;</code>区切り）
       </div>
     </div>
+    <!-- ▲▲ ここまで ▼▼ -->
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -122,7 +110,6 @@
   <script src="./db.js"></script>
   <script src="./app.js"></script>
   <script>
-    // Service Worker 登録
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./service-worker.js').catch(console.error);
