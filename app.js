@@ -1,20 +1,22 @@
 // ------------------------------
-// デフォルトボタン（URLパラメータが無い場合に表示）
+// デフォルトボタン（URLパラメータで上書き可）
 // ------------------------------
 const DEFAULT_BUTTONS = [
-  { title: 'X',         url: 'https://x.com/home' },
-  { title: 'YouTube',   url: 'https://www.youtube.com/' },
-  { title: 'Instagram', url: 'https://www.instagram.com/' }
+  { title: 'X',          url: 'https://x.com/home' },
+  { title: 'YouTube',    url: 'https://www.youtube.com/' },
+  { title: 'Instagram',  url: 'https://www.instagram.com/' }
 ];
 
+// ベースURL（ユーザー指定）
+const BASE_URL = 'https://46memorybit.github.io/sns/index.html';
+
 // ------------------------------
-// 便利関数
+// ユーティリティ
 // ------------------------------
 const $ = (sel) => document.querySelector(sel);
 
 const toast = (msg, ms = 1400) => {
   const el = $('#toast');
-  if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toast._t);
@@ -22,11 +24,11 @@ const toast = (msg, ms = 1400) => {
 };
 
 const copyText = async (text) => {
+  if (!text) { toast('コピーする内容がありません'); return; }
   try {
     await navigator.clipboard.writeText(text);
     toast('コピーしました');
   } catch {
-    // フォールバック
     const ta = document.createElement('textarea');
     ta.value = text;
     document.body.appendChild(ta);
@@ -38,28 +40,22 @@ const copyText = async (text) => {
 };
 
 // ------------------------------
-// URLパラメータ：text, btn
-//  - ?text=初期テキスト
-//  - ?btn=タイトル|URL を複数回（"|" は %7C として生成）
+// URL パラメータ解析
+// ?text=...（初期文）
+// ?btn=タイトル|URL（複数可）
 // 互換：?buttons=タイトル|URL;タイトル|URL;...
 // ------------------------------
-const getInitialTextFromURL = () => {
-  const p = new URLSearchParams(location.search);
-  const t = p.get('text');
-  return t ? decodeURIComponent(t) : null;
-};
-
 const parseUrlButtons = () => {
   const params = new URLSearchParams(location.search);
   const list = [];
 
-  // btn=title|url を複数回
+  // btn=title|url を複数
   for (const v of params.getAll('btn')) {
     const s = v.split('|');
     if (s.length >= 2) list.push({ title: decodeURIComponent(s[0]), url: s.slice(1).join('|') });
   }
 
-  // buttons=title|url;title|url 形式
+  // buttons=title|url;title|url 形式もサポート
   const bulk = params.get('buttons');
   if (bulk) {
     bulk.split(';').forEach(item => {
@@ -68,10 +64,15 @@ const parseUrlButtons = () => {
     });
   }
 
-  // 最低限のバリデーション
   return list
     .map(b => ({ title: (b.title || '').trim(), url: (b.url || '').trim() }))
     .filter(b => b.title && /^https?:\/\//i.test(b.url));
+};
+
+const getInitialTextFromURL = () => {
+  const p = new URLSearchParams(location.search);
+  const t = p.get('text');
+  return t ? decodeURIComponent(t) : null;
 };
 
 // ------------------------------
@@ -79,7 +80,6 @@ const parseUrlButtons = () => {
 // ------------------------------
 const renderButtons = (buttons) => {
   const links = $('#links');
-  if (!links) return;
   links.innerHTML = '';
   buttons.forEach(({ title, url }) => {
     const a = document.createElement('a');
@@ -87,91 +87,79 @@ const renderButtons = (buttons) => {
     a.textContent = title;
     a.href = url;
     a.rel = 'noopener noreferrer';
-    a.target = '_blank'; // 外部ブラウザで開きやすくする
+    a.target = '_blank'; // PWAでも外部ブラウザへ
     links.appendChild(a);
   });
 };
 
 // ------------------------------
-// 共有用URL生成
+// URLビルダー（最下部セクション）
 // ------------------------------
-const getButtonsFromDOM = () => {
-  return [...document.querySelectorAll('#links a.linkbtn')].map(a => ({
-    title: a.textContent.trim(),
-    url: a.href
-  }));
+const builderState = {
+  pairs: [] // {title, url}[]
 };
 
-const buildShareUrl = ({ baseUrl, includeText, includeBtns }) => {
-  try {
-    const base = (baseUrl || '').trim();
-    if (!base) return '';
+const safeTitle = (t) => (t ?? '').trim();
+const safeUrl = (u) => (u ?? '').trim();
 
-    const params = new URLSearchParams();
+const addPair = (title, url) => {
+  title = safeTitle(title);
+  url   = safeUrl(url);
+  if (!title) { toast('タイトルを入力してください'); return; }
+  if (!/^https?:\/\//i.test(url)) { toast('URLは https:// から始めてください'); return; }
+  builderState.pairs.push({ title, url });
+  renderPairList();
+};
 
-    if (includeText) {
-      const v = ($('#memo')?.value || '').trim();
-      if (v) params.set('text', v);
-    }
+const removePair = (idx) => {
+  builderState.pairs.splice(idx, 1);
+  renderPairList();
+};
 
-    const btnParams = [];
-    if (includeBtns) {
-      const btns = getButtonsFromDOM();
-      btns.forEach(({ title, url }) => {
-        if (!title || !/^https?:\/\//i.test(url)) return;
-        // "タイトル|URL" の '|' は %7C 固定。要素は encodeURIComponent。
-        const val = `${encodeURIComponent(title)}%7C${encodeURIComponent(url)}`;
-        btnParams.push(`btn=${val}`);
-      });
-    }
+const resetPairs = () => {
+  builderState.pairs = [];
+  renderPairList();
+  $('#genUrl').textContent = '';
+};
 
-    const qsMain = params.toString();   // text=...
-    const qsBtns = btnParams.join('&'); // btn=...&btn=...
-    const glue = (qsMain || qsBtns) ? '?' : '';
-    const amp = (qsMain && qsBtns) ? '&' : '';
+const renderPairList = () => {
+  const list = $('#pairList');
+  list.innerHTML = '';
+  builderState.pairs.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'pairitem';
+    const title = document.createElement('div');
+    title.innerHTML = `<b>${escapeHtml(p.title)}</b>`;
+    const link = document.createElement('div');
+    link.textContent = p.url;
+    const del = document.createElement('button');
+    del.className = 'btn del';
+    del.textContent = '削除';
+    del.addEventListener('click', () => removePair(i));
+    row.appendChild(title);
+    row.appendChild(link);
+    row.appendChild(del);
+    list.appendChild(row);
+  });
+};
 
-    return `${base}${glue}${qsMain}${amp}${qsBtns}`;
-  } catch (e) {
-    console.error(e);
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (m) =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])
+);
+
+const buildUrl = () => {
+  const base = BASE_URL;
+  if (builderState.pairs.length === 0) {
+    toast('ペアがありません（まず追加してください）');
     return '';
   }
-};
-
-const initShareForm = () => {
-  const baseUrl = $('#baseUrl');
-  const optText = $('#optText');
-  const optBtns = $('#optBtns');
-  const shareUrl = $('#shareUrl');
-  const genBtn = $('#genBtn');
-  const copyShareBtn = $('#copyShareBtn');
-  if (!baseUrl || !optText || !optBtns || !shareUrl || !genBtn || !copyShareBtn) return;
-
-  const regenerate = () => {
-    const url = buildShareUrl({
-      baseUrl: baseUrl.value,
-      includeText: optText.checked,
-      includeBtns: optBtns.checked
-    });
-    shareUrl.value = url;
-  };
-
-  // 初回生成
-  regenerate();
-
-  // 入力変化で自動再生成（軽デバウンス）
-  let t;
-  const auto = () => { clearTimeout(t); t = setTimeout(regenerate, 150); };
-  ['input','change'].forEach(ev => {
-    baseUrl.addEventListener(ev, auto);
-    optText.addEventListener(ev, auto);
-    optBtns.addEventListener(ev, auto);
-  });
-
-  // メモが変わったら再生成
-  $('#memo')?.addEventListener('input', auto);
-
-  genBtn.addEventListener('click', (e) => { e.preventDefault(); regenerate(); toast('URLを再生成しました'); });
-  copyShareBtn.addEventListener('click', (e) => { e.preventDefault(); copyText(shareUrl.value); });
+  const params = builderState.pairs.map(p =>
+    // タイトルはエンコード、区切りの | はそのまま、URLはそのまま（既にエンコードされていてもOK）
+    `btn=${encodeURIComponent(p.title)}|${p.url}`
+  ).join('&');
+  const out = `${base}?${params}`;
+  $('#genUrl').textContent = out;
+  return out;
 };
 
 // ------------------------------
@@ -182,12 +170,11 @@ const initShareForm = () => {
   const copyBtn = $('#copyBtn');
   const clearBtn = $('#clearBtn');
 
-  // 1) IndexedDB から初期読み込み
+  // 1) メモ初期化
   const saved = await db.get('noteText');
   if (typeof saved === 'string') {
     memo.value = saved;
   } else {
-    // URL ?text= で初期値があれば採用
     const fromURL = getInitialTextFromURL();
     if (fromURL) {
       memo.value = fromURL;
@@ -195,7 +182,7 @@ const initShareForm = () => {
     }
   }
 
-  // 2) 自動保存（入力ごと。軽いデバウンス）
+  // 自動保存（デバウンス）
   let t;
   memo.addEventListener('input', () => {
     clearTimeout(t);
@@ -203,21 +190,42 @@ const initShareForm = () => {
     t = setTimeout(() => db.set('noteText', v), 200);
   });
 
-  // 3) コピー
+  // コピー＆消去
   copyBtn.addEventListener('click', () => copyText(memo.value));
-
-  // 4) 消去
   clearBtn.addEventListener('click', async () => {
     memo.value = '';
     await db.set('noteText', '');
     toast('消去しました');
   });
 
-  // 5) リンクボタン描画
+  // 2) パラメータのボタン描画
   const urlButtons = parseUrlButtons();
   const buttons = urlButtons.length ? urlButtons : DEFAULT_BUTTONS;
   renderButtons(buttons);
 
-  // 6) 共有用URLフォーム初期化
-  initShareForm();
+  // 3) URLビルダー動作
+  $('#addPair').addEventListener('click', () => {
+    addPair($('#bTitle').value, $('#bUrl').value);
+    // 入力欄は続けて追加しやすいようにタイトルのみクリア
+    $('#bTitle').value = '';
+    $('#bTitle').focus();
+  });
+
+  $('#resetPairs').addEventListener('click', resetPairs);
+
+  $('#genBtn').addEventListener('click', () => {
+    const url = buildUrl();
+    if (url) toast('生成しました');
+  });
+
+  $('#copyGen').addEventListener('click', () => {
+    const text = $('#genUrl').textContent.trim();
+    if (!text) {
+      const url = buildUrl();
+      if (!url) return;
+      copyText(url);
+    } else {
+      copyText(text);
+    }
+  });
 })();
